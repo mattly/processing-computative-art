@@ -19,7 +19,7 @@
      (-> y (* cy) (+ cy))]))
 
 
-(def top 255)
+(def top 580)
 
 (def series  
   (->> h/fib-seq
