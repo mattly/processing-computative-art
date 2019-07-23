@@ -16,6 +16,12 @@
       (q/no-loop))
     {}))
 
+
+(defn- fib [a b] (lazy-seq (cons a (fib b (+ a b)))))
+
+(def fib-seq (fib 0 1))
+
+
 (defn pol2car 
   "given radius r and angle a in radians, returns cartesian offset"
   [r a]
