@@ -14,7 +14,9 @@
     (when (:static opts)
       (q/frame-rate 1)
       (q/no-loop))
-    {}))
+    (if-let [f (:setup opts)]
+      (f)
+      {})))
 
 
 (defn- fib [a b] (lazy-seq (cons a (fib b (+ a b)))))
