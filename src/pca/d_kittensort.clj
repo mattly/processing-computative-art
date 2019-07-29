@@ -25,8 +25,8 @@
   (->> rows
     (map (fn [row]
            (->> row
-             (partition-by (fn [p] (q/floor (/ (q/brightness p) 15))))
-                   (mapcat (partial sort-by q/saturation)))))
+                (partition-by (fn [p] (q/floor (/ (q/brightness p) 15))))
+                (mapcat (partial sort-by q/saturation)))))
        (partition-by (fn [row] (q/floor (/ (->> row (map q/saturation) (reduce +)) (* 5 size)))))
        (mapcat (partial sort-by (fn [row] (->> row (map q/brightness) (reduce +)))))))
 
