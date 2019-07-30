@@ -4,17 +4,24 @@
    [quil.core :as q]))
 
 (def size 1000)
+(def image-width 650)
+(def image-height 1000)
 
 (def setup 
   (h/setup 
    {:setup (fn []
-             (let [kitten (q/load-image "src-images/1000.jpg")]
+             (let [kitten (q/load-image "src-images/650.jpg")]
                {:kitten kitten}))
     :static true}))
 
 (defn method-one [rows]
   (->> rows
-       (map (partial sort-by (fn [p] (+ (q/brightness p) (q/saturation p)))))
+       (map (partial sort-by (fn [p] (+ (* 2 (q/brightness p)) (q/saturation p)))))
+       (map (fn [row]
+              (->> row
+                   (take (- size image-width))
+                   (sort-by q/brightness)
+                   (apply conj row))))
        (sort-by (fn [row]
                   (->> row
                        (mapcat (juxt q/brightness q/saturation))
@@ -22,26 +29,35 @@
        (reverse)))
 
 (defn method-two [rows]
-  (->> rows
-    (map (fn [row]
-           (->> row
-                (partition-by (fn [p] (q/floor (/ (q/brightness p) 15))))
-                (mapcat (partial sort-by q/saturation)))))
-       (partition-by (fn [row] (q/floor (/ (->> row (map q/saturation) (reduce +)) (* 5 size)))))
-       (mapcat (partial sort-by (fn [row] (->> row (map q/brightness) (reduce +)))))))
+  (let [chunk-size (q/floor (q/random 42 166))
+        chunk-count (q/ceil (/ image-width chunk-size))
+        makeup-width (/ (- size image-width) chunk-count)]
+    (->> rows
+         (map (fn [row]
+                (->> row
+                     (partition-by (fn parition-chunks [p] (q/floor (/ (q/brightness p) 15))))
+                     (mapcat (partial sort-by q/saturation))
+                     (partition-all chunk-size)
+                     (mapcat (fn makeup-chunks [chunk]
+                               (->> chunk
+                                    (sort-by q/brightness)
+                                    (take makeup-width)
+                                    (apply conj chunk)))))))
+         (partition-by (fn [row] (q/floor (/ (->> row (map q/saturation) (reduce +)) (* 5 size)))))
+         (mapcat (partial sort-by (fn [row] (->> row (map q/brightness) (reduce +))))))))
 
 (defn draw [{:keys [kitten]}]
-  (q/image kitten 0 0)
-  (let [px (q/pixels)]
+  (let [canvas  (q/pixels)
+        kpixels (q/pixels kitten)]
     (println :sorting)
-    (->> (range (* size size))
-         (map #(aget px %))
-         (partition 1000) ;; -- start rows
-         (method-one) ;; first method, simple sorting
-         (method-two) ;; second method, less glitchy more subtle
-         (mapcat identity) ;; -- flatten rows
-         (map (fn [i p] (aset-int px i p)) (range))
-         (doall))
+    (time
+     (->> kpixels
+       (partition image-width) ;; -- start rows
+       (method-one) ;; first method, simple sorting
+      ;  (method-two) ;; second method, less glitchy more subtle
+       (mapcat identity) ;; -- flatten rows
+       (map (fn [i p] (aset-int canvas i p)) (range))
+       (doall)))
     (println :done-sorting)
     (q/update-pixels)))
 
