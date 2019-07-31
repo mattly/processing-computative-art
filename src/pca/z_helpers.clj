@@ -29,3 +29,16 @@
   [r a]
   [(* r (q/cos a))
    (* r (q/sin a))])
+
+(defn car2pol [[x y]]
+  "given coordinates x and y with 0,0 as center of circle, returns radius and angle in radians"
+  [(q/sqrt (+ (q/sq x) (q/sq y)))
+   (let [xx (cond (pos? x) :pos (neg? x) :neg (zero? x) :zero)
+         yy (cond (pos? y) :pos (neg? y) :neg (zero? y) :zero)]
+     (case [xx yy]
+       [:zero :zero] 0
+       [:zero :pos] q/HALF-PI
+       [:zero :neg] (* q/PI 1.5)
+       ([:pos :pos] [:pos :zero]) (q/atan (/ y x))
+       [:pos :neg] (+ (* q/PI 2) (q/atan (/ y x)))
+       (+ q/PI (q/atan (/ y x)))))])
