@@ -25,10 +25,10 @@
      (q/camera 0 40 0
                0 -50 500
                0 1 0)
-     (q/directional-light 0 0 200 0 0 -1)
+     (q/directional-light 0 0 97 0 0 -1)
      (q/directional-light 0 0 66 1 0.5 0)
+     (q/directional-light 0 0 66 -1 -0.5 0)
      (q/light-falloff 3 0.03 0)
-    ;  #_
      (doseq [z (map #(* % (/ z-max 4)) (range 4))]
          (q/point-light 0 0 98 0 0 z))
      (q/ambient-light 0 0 95)
@@ -40,7 +40,7 @@
        (let [hz     (* 10 (/ (- 1 (q/random 1))))
              r-base (-> (q/random-gaussian) (q/constrain -3 3) (* 10) (+ 60))
              hue    (q/degrees (* i angle-segment))]
-         (loop [z 10]
+         (loop [z 30]
            (let [a        (mod (+ (* i angle-segment) (* q/QUARTER-PI (q/random-gaussian))) q/TWO-PI)
                  strength (-> z (/ z-max) (* 2) (q/constrain 1 2) (- 1) (q/pow 2) (* -1) (+ 1))
                  r        (-> (q/noise z)
