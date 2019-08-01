@@ -10,7 +10,7 @@
 (def setup 
   (h/setup 
    {:setup (fn []
-             (let [kitten (q/load-image "src-images/650.jpg")]
+             (let [kitten (q/load-image "etc/650.jpg")]
                {:kitten kitten}))
     :static true}))
 
