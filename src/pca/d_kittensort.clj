@@ -37,7 +37,9 @@
                 (->> row
                      (partition-by (fn parition-chunks [p] (q/floor (/ (q/brightness p) 15))))
                      (mapcat (partial sort-by q/saturation))
+                    ;  #_
                      (partition-all chunk-size)
+                    ;  #_
                      (mapcat (fn makeup-chunks [chunk]
                                (->> chunk
                                     (sort-by q/brightness)

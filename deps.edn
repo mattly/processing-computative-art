@@ -1,5 +1,6 @@
 {:deps 
  {org.clojure/clojure {:mvn/version "1.10.1"}
-  quil {:mvn/version "3.0.0"}}
+  quil                {:mvn/version "3.0.0"}}
+ 
  :aliases
  {:xl {:jvm-opts ["-ms10000m" "-Xmx10000M"]}}}
