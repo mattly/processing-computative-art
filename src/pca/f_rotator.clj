@@ -17,7 +17,13 @@
         [x y] (h/pol2car r a)]
     [(+ cx xo x) (+ cy yo y)]))
 
-(def primes [3 5 7 11 13 17 19 23 27 31 37 43])
+(def primes [3 5 7 11 13 17 19 23 27 31 37 41 43 47 53 61 67])
+
+
+(defn gaussian-within [s bound]
+  (-> (q/random-gaussian)
+      (* s)
+      (q/constrain (- bound) bound)))
 
 (def *reset? (atom nil))
 (comment (reset! *reset? true))
@@ -27,52 +33,72 @@
   (doto 
     {:series (map (fn [i]
                     (let [size (h/qrand-nth primes)
-                          hz (-> (q/random-gaussian) (* (inc i) 1/9) (q/constrain -20 20))
-                          innerb (-> (q/random-gaussian) (q/constrain -5 5) (* rmax 1/4) (+ (* rmax 1/9)))
-                          heightb (-> (q/random-gaussian) (q/constrain -10 10) (+ 10) (* (/ size) rmax 1/3))]
-                      {:size size
-                       :hz hz
+                          hz (gaussian-within (* (inc i) 1/9) 1)]
+                      {:size  size
+                       :hz    hz
                        :color (h/qrand-nth h/solarized)
-                       :r/inner-base innerb
-                       :r/inner-phase (-> (q/random-gaussian) (* q/PI) (mod q/PI))
-                       :r/inner-factor (q/random-gaussian)
-                       :r/inner-hz (* hz (q/random-gaussian) 1/11)
-                       :r/height-base heightb
-                       :r/height-phase (-> (q/random-gaussian) (* q/PI) (mod q/PI))
-                       :r/height-factor (q/random-gaussian)
-                       :r/height-hz (* hz (q/random-gaussian) 1/19)}))
-                  (range (q/floor (q/random 5 7))))}
+                       :center {:offset    (* (q/random-gaussian) q/TWO-PI)
+                                :radius    (q/random 0 (* rmax 1/31))
+                                :offset/hz (gaussian-within 1/307 0.25)
+                                :radius/hz (gaussian-within 1/223 0.25)}
+                       :inner {:base        (+ (gaussian-within (* rmax 1/5) 5) (* rmax 1/9))
+                               :phase       (-> (q/random-gaussian) (* q/TWO-PI) (mod q/TWO-PI))
+                               :factor      (gaussian-within 1/211 1/43)
+                               :hz          (gaussian-within 1/13 1)
+                               :breathe/hz  (gaussian-within 1/5 0.5)
+                               :breathe/amt (q/random-gaussian)}
+                       :outer {:base        (-> (q/random-gaussian) (q/constrain -10 10) (+ 10) (* (/ size) rmax 1/3))
+                               :phase       (-> (q/random-gaussian) (* q/TWO-PI) (mod q/TWO-PI))
+                               :factor      (gaussian-within 1/331 1/59)
+                               :hz          (gaussian-within 1/37 1)
+                               :breathe/hz  (gaussian-within 1/11 1)
+                               :breathe/amt (q/random-gaussian)}}))
+                  (range (h/qrand-nth (vec (take 7 primes)))))}
     clojure.pprint/pprint))
 
 (def setup
   (h/setup {:setup (fn [] (reset-state))}))
 
 (defn update-state [state]
-  (if @*reset?
-    (reset-state)
-    state))
+  (cond 
+    @*reset? (reset-state)
+    (zero? (mod (q/frame-count) (* 30 30))) (reset-state)
+    :else state))
 
 (defn draw [{:keys [series]}]
-  (q/background 0 0 10)
+  (apply q/background (first h/solarized))
   (q/stroke-cap :square)
-  (let [height-max (apply max (map :r/height-base series))
+  (let [height-max (->> series (map :outer) (map :base) (apply max))
         frame (/ (q/frame-count) 30)]
-    (doseq [{:as s :keys [size hz color]} series]
+    (doseq [{:keys [size hz color inner outer center]} series]
       (doseq [n (range size)]
-        (let [weight (-> (/ (:r/height-base s) height-max)
-                         (q/map-range 0 1 (/ size 2) 2))
-              a (-> frame (* hz) ;; frequency
-                    (+ (* (/ n size) q/TWO-PI))  ;; n-phase
-                    )
-              inner (-> a (+ (:r/inner-phase s) (* (:r/inner-factor s))) q/sin
-                        (+ (q/map-range (q/sin (* (:r/inner-hz s) frame)) -1 1 0 1))
-                        (q/map-range -2 2 (:r/inner-base s) (* 2 (:r/inner-base s))))
-              [sx sy] (coord [inner a])
-              outer (-> a (+ (:r/height-phase s) (* (:r/height-factor s))) q/sin
-                        (+ (q/map-range (q/sin (* (:r/height-hz s) frame)) -1 1 0 1))
-                        (q/map-range -2 2 1 (:r/height-base s))
-                        (+ inner))
-              [ex ey] (coord [outer a])]
+        (let [weight (-> (/ (:base outer) height-max)
+                         (q/map-range 0 1 (/ size 3) 2))
+              a (-> frame (* hz)
+                    (+ (* (/ n size) q/TWO-PI)))
+              cro (* (:radius center) 
+                     (+ 1 (q/sin (* q/TWO-PI frame (:radius/hz center)))))
+              cra (+ (:offset center) 
+                     (* q/TWO-PI frame (:offset/hz center)))
+              sr-base (* (:base inner) 
+                         (:breathe/amt inner) 
+                         (+ 1 (q/sin (* q/TWO-PI frame (:breathe/hz inner)))))
+              sr (-> a 
+                     (+ (:phase inner)) 
+                     (* (:factor inner)) 
+                     (* (:hz inner) frame q/TWO-PI)
+                     q/cos
+                     (q/map-range -1 1 sr-base (* 2 sr-base)))
+              [sx sy] (coord [sr a] cro cra)
+              er (-> a 
+                     (+ (:phase outer))
+                     (* (:factor outer)) 
+                     (* (:hz outer) frame q/TWO-PI)
+                     q/sin
+                     (q/map-range -1 1 5 (* (:base outer)
+                                            (:breathe/amt outer)
+                                            (+ 1 (q/sin (* q/TWO-PI frame (:breathe/hz outer)))))))
+              [ex ey] (coord [(+ sr er) a] cro cra)]
           (q/stroke-weight weight)
           (apply q/stroke color )
           (q/line sx sy ex ey))))))
