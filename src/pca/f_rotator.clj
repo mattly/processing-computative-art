@@ -17,13 +17,14 @@
         [x y] (h/pol2car r a)]
     [(+ cx xo x) (+ cy yo y)]))
 
-(def primes [3 5 7 11 13 17 19 23 27 31 37 41 43 47 53 61 67])
-
+(def primes [3 5 7 11 13 17 19 23 27 31 37 41 43])
 
 (defn gaussian-within [s bound]
-  (-> (q/random-gaussian)
-      (* s)
-      (q/constrain (- bound) bound)))
+  (let [n (q/random-gaussian)]
+    (cond (Double/isFinite n)
+          (-> n (* s) (q/constrain (- bound) bound))
+          (neg? n) (- bound)
+          :else bound)))
 
 (def *reset? (atom nil))
 (comment (reset! *reset? true))
@@ -41,15 +42,17 @@
                                 :radius    (q/random 0 (* rmax 1/31))
                                 :offset/hz (gaussian-within 1/307 0.25)
                                 :radius/hz (gaussian-within 1/223 0.25)}
-                       :inner {:base        (+ (gaussian-within (* rmax 1/5) 5) (* rmax 1/9))
+                       :inner {:base        (+ (gaussian-within (* rmax 1/3) 5) (* rmax 1/7))
                                :phase       (-> (q/random-gaussian) (* q/TWO-PI) (mod q/TWO-PI))
-                               :factor      (gaussian-within 1/211 1/43)
+                               :factor      (gaussian-within 3 13)
+                               :scale       (gaussian-within 2 11)
                                :hz          (gaussian-within 1/13 1)
                                :breathe/hz  (gaussian-within 1/5 0.5)
                                :breathe/amt (q/random-gaussian)}
-                       :outer {:base        (-> (q/random-gaussian) (q/constrain -10 10) (+ 10) (* (/ size) rmax 1/3))
+                       :outer {:base        (-> (gaussian-within (* (/ size) rmax 1/3) 10) (+ 10))
                                :phase       (-> (q/random-gaussian) (* q/TWO-PI) (mod q/TWO-PI))
-                               :factor      (gaussian-within 1/331 1/59)
+                               :factor      (gaussian-within 2 11)
+                               :scale       (gaussian-within 3 23)
                                :hz          (gaussian-within 1/37 1)
                                :breathe/hz  (gaussian-within 1/11 1)
                                :breathe/amt (q/random-gaussian)}}))
@@ -80,24 +83,30 @@
                      (+ 1 (q/sin (* q/TWO-PI frame (:radius/hz center)))))
               cra (+ (:offset center) 
                      (* q/TWO-PI frame (:offset/hz center)))
-              sr-base (* (:base inner) 
-                         (:breathe/amt inner) 
-                         (+ 1 (q/sin (* q/TWO-PI frame (:breathe/hz inner)))))
-              sr (-> a 
-                     (+ (:phase inner)) 
-                     (* (:factor inner)) 
-                     (* (:hz inner) frame q/TWO-PI)
-                     q/cos
-                     (q/map-range -1 1 sr-base (* 2 sr-base)))
-              [sx sy] (coord [sr a] cro cra)
-              er (-> a 
-                     (+ (:phase outer))
-                     (* (:factor outer)) 
-                     (* (:hz outer) frame q/TWO-PI)
+              sr-base (+ (:base inner) #_
+                         (* (:base inner)
+                            (:breathe/amt inner)
+                            (q/sin (* q/TWO-PI frame (:breathe/hz inner)))))
+              sr (-> ; (* (:hz inner) frame q/TWO-PI)
+                     (+ a (:phase inner))
                      q/sin
-                     (q/map-range -1 1 5 (* (:base outer)
-                                            (:breathe/amt outer)
-                                            (+ 1 (q/sin (* q/TWO-PI frame (:breathe/hz outer)))))))
+                     (q/map-range -1 1 0.00001 0.99999)
+                    ;  (q/pow (:factor inner))
+                    ;  (* (:scale inner))
+                     (q/map-range 0 1 sr-base (* 2 sr-base)))
+              [sx sy] (coord [sr a] cro cra)
+              er-end (+ (:base outer) #_
+                        (* (:base outer)
+                           (:breathe/amt outer)
+                           (+ 1 (q/sin (* q/TWO-PI frame (:breathe/hz outer))))))
+              er (-> ; (* (:hz outer) frame q/TWO-PI)
+                     (+ a (:phase outer))
+                     q/sin
+                     (q/map-range -1 1 0.00001 0.99999)
+                    ;  (q/constrain 0.00001 1)
+                    ;  (q/pow (:factor outer))
+                    ;  (* (:scale outer))
+                     (q/map-range 0 1 5 er-end))
               [ex ey] (coord [(+ sr er) a] cro cra)]
           (q/stroke-weight weight)
           (apply q/stroke color )
